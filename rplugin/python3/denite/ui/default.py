@@ -545,6 +545,7 @@ class Default(object):
             self._context, action_name, candidates)
         if not action:
             return
+
         is_quit = action['is_quit']
         if is_quit:
             self.quit()
@@ -631,11 +632,34 @@ class Default(object):
     def scroll_window_downwards(self):
         self.scroll_down(self._scroll)
 
+    def __get_preview_window(self):
+        return next(filterfalse(lambda x:
+                                not x.options['previewwindow'],
+                                self._vim.windows), None)
+
     def scroll_page_backwards(self):
-        self.scroll_up(self._winheight - 1)
+        previewwindow = self.__get_preview_window()
+        if previewwindow:
+            prev_id = self._vim.call('win_getid')
+            wnr = previewwindow.number
+            wid = self._vim.call('win_getid', wnr)
+            self._vim.call('win_gotoid', wid)
+            self._vim.command(r'execute "normal! \<C-b>"')
+            self._vim.call('win_gotoid', prev_id)
+        else:
+            self.scroll_up(self._winheight - 1)
 
     def scroll_page_forwards(self):
-        self.scroll_down(self._winheight - 1)
+        previewwindow = self.__get_preview_window()
+        if previewwindow:
+            prev_id = self._vim.call('win_getid')
+            wnr = previewwindow.number
+            wid = self._vim.call('win_getid', wnr)
+            self._vim.call('win_gotoid', wid)
+            self._vim.command(r'execute "normal! \<C-f>"')
+            self._vim.call('win_gotoid', prev_id)
+        else:
+            self.scroll_down(self._winheight - 1)
 
     def scroll_down(self, scroll):
         if self._win_cursor + self._cursor < self._candidates_len:
