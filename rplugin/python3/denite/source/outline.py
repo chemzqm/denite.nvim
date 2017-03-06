@@ -46,10 +46,12 @@ class Source(Base):
                     self.syntax_name, syn['name'], syn['link']))
 
     def gather_candidates(self, context):
+        isJS = context['__path'].endswith('.js')
+        cmd = ['jsctags'] if isJS else self.vars['command']
         with tempfile.NamedTemporaryFile(
-                mode='w', encoding=self.vars['encoding']) as tf:
+            mode='w', encoding=self.vars['encoding']) as tf:
             args = []
-            args += self.vars['command']
+            args += cmd
             args += self.vars['options']
             args += [self.vars['file_opt'], tf.name]
             args += [context['__path']]
@@ -67,13 +69,26 @@ class Source(Base):
                 for line in f:
                     if re.match('!', line) or not line:
                         continue
-                    info = parse_tagline(line.rstrip(), tf.name)
-                    if info['type'] in self.vars['ignore_types']:
-                        continue
+                    if isJS:
+                        line = line.rstrip()
+                        elem = [e for e in line.split("\t") if e != '']
+                        if elem[1] in self.vars['ignore_types']:
+                            continue
+                        candidates.append({
+                            'word': elem[0],
+                            'abbr': '%s %s [%s]' % (elem[0], ' '.join(elem[4:]), elem[1]),
+                            'action__path': context['__path'],
+                            'action__line': elem[2]
+                            })
 
-                    candidates.append({
-                        'word': '{name} [{type}]  {ref}'.format(**info),
-                        'action__path': context['__path'],
-                        'action__pattern': info['pattern']
-                    })
+                    else:
+                        info = parse_tagline(line.rstrip(), tf.name)
+                        if info['type'] in self.vars['ignore_types']:
+                            continue
+
+                        candidates.append({
+                            'word': '{name} [{type}]  {ref}'.format(**info),
+                            'action__path': context['__path'],
+                            'action__pattern': info['pattern']
+                        })
         return candidates
