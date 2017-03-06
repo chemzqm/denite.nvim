@@ -6,8 +6,10 @@
 
 import re
 import os
+import shlex
+import subprocess
 from itertools import filterfalse
-
+from denite import util
 from .openable import Kind as Openable
 
 
@@ -18,8 +20,32 @@ class Kind(Openable):
 
         self.name = 'file'
         self.default_action = 'open'
-        self.persist_actions += ['preview', 'highlight']
+        self.redraw_actions += ['delete', 'add', 'preview', 'highlight']
+        self.persist_actions += ['preview', 'highlight', 'add', 'delete']
         self._previewed_target = {}
+
+    def action_delete(self, context):
+        path = ''
+        for target in context['targets']:
+            path = path + ' ' + target['action__path']
+            self.vim.command('Rm ' + path)
+
+    def action_add(self, context):
+        cwd = self.vim.call('getcwd')
+        target = context['targets'][0]
+        dirpath = os.path.dirname(target['action__path'])
+        if not os.path.isabs(dirpath):
+            dirpath = os.path.join(cwd, dirpath)
+        inputs = util.input(self.vim, context, 'Touch ')
+        if not inputs:
+            return
+        args = 'touch %s' % (inputs)
+        self.vim.command('lcd' + dirpath)
+        try:
+            self.vim.call('system', args)
+        except Exception:
+            pass
+        self.vim.command('lcd' + cwd)
 
     def action_open(self, context):
         cwd = self.vim.call('getcwd')
